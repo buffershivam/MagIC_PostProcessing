@@ -1,0 +1,6 @@
+# MagIC Output files
+Visualisation/*.test_BIS
+Visualisation/*.test
+
+# Plots,.png files
+Visualisation/frames*/
