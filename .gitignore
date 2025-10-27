@@ -4,3 +4,7 @@ Visualisation/*.test
 
 # Plots,.png files
 Visualisation/frames*/
+
+
+# Files created on compilation
+Visualisation/_pycache_
