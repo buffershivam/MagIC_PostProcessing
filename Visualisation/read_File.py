@@ -5,7 +5,7 @@ import os
 class ReadFile:
     def __init__(self,filename):
         self.filename = filename
-        self.number = int(''.join(filter(str.isdigit, filename.stem)))
+        self.number = int(''.join(filter(str.isdigit, os.path.splitext(filename)[0])))
         self.ra = 0
         self.pr = 0
         self.raxi = 0
