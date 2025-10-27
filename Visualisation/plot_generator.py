@@ -209,19 +209,19 @@ class GeneratePlots:
 
         # To generate .png files of orthographic projection of the spherical surface
     def generate_Ortho_Plot(self, prop_type, prop_name, dir_path="."):
-        nr = self.reader.nr
+        nr = self.reader.nr                          # Is this variable required?
         ntheta = self.reader.ntheta
         nphi = self.reader.nphi
 
         # Angular coordinates
-        theta = np.linspace(0., np.pi, ntheta)               # colatitude [0, pi]
+        theta = np.linspace(0., np.pi, ntheta)       # colatitude [0, pi]
         phi_part = np.linspace(0., 2*np.pi, nphi-1)  # azimuthal angle for partial wedge
 
-        v = prop_type[:, :, 0]                         # shape (phi_part, theta) , 0 corresponds to outermost radius
+        v = prop_type[:, :, 0]                       # shape (phi_part, theta) , 0 corresponds to outermost radius
 
         # Tile phi and data to complete full 2π in azimuth
-        phi = np.tile(phi_part, 1)                        # full azimuth
-        v_full = np.tile(v, (self.reader.minc, 1))                    # shape becomes (phi, theta)
+        phi = np.tile(phi_part, 1)                   # full azimuth
+        v_full = np.tile(v, (self.reader.minc, 1))   # shape becomes (phi, theta)
 
         # Create meshgrid in (lon, lat)
         lon_grid, lat_grid = np.meshgrid(phi, theta, indexing='ij')  # shape (phi, theta)
