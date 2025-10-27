@@ -11,19 +11,25 @@ from colorama import Fore, Style, init # to show a colourful end message
 # import shutil
 import cartopy.crs as ccrs
 import imageio.v2 as imageio
-# import os
+#import os
 
 class GeneratePlots:
     def __init__(self, reader: ReadFile):
         self.reader = reader
 
-    def prepare_directory(prop_name, plane, dir_name = None):
-        dir_name = f"./frames{plane}/frames{plane}_{prop_name}"
+    def prepare_directory(self, prop_name, plane, dir_name = None):
+        script_dir = Path(__file__).resolve().parent
+        if script_dir.name == "Visualisation":
+            base_dir = script_dir
+        else:
+            base_dir = script_dir / "Visualisation"
+        if dir_name is None:
+            dir_name = f"frames{plane}/frames{plane}_{prop_name}"
 
-        dir_path = Path(dir_name)
+        dir_path = base_dir / dir_name
         dir_path.mkdir(parents=True, exist_ok=True)
 
-        return dir_name
+        return dir_path
 
 
     # Generates the Equatorial Plot for the property
@@ -57,7 +63,7 @@ class GeneratePlots:
         plt.title(f'Equatorial Plane: Normalised {prop_name}')
         plt.axis('equal')
         plt.tight_layout()
-        plt.savefig(f"{dir_path}/frame_{self.number}.png", dpi=300)
+        plt.savefig(f"{dir_path}/frame_{self.reader.number}.png", dpi=300)
         plt.close()
 
 
@@ -92,12 +98,12 @@ class GeneratePlots:
         plt.title(f'Meridional Plane: Normalised {prop_name}')
         plt.axis('equal')
         plt.tight_layout()
-        plt.savefig(f"{dir_path}/frame_{self.number}.png")
+        plt.savefig(f"{dir_path}/frame_{self.reader.number}.png")
         plt.close()
 
 
     # Generates .png files of the plots of the requested property
-    def generate_plot(self, srcDir, prop, plot_type):
+    def generate_plot(self, prop, plot_type):
 
         valid_props = {"vr", "vtheta", "vphi", "entropy"}
         if prop not in valid_props:
