@@ -10,6 +10,30 @@ from matplotlib import cm
 #import plotly.graph_objects as go
 from scipy.special import lpmv
 
+
+def read_stream(filename):
+    f=open(filename,'rb')
+    version=np.fromfile(f,np.int32,count=1)[0]#read the version
+    time,Ra,Pr,Raxi,Sc,Prmag,Ek,radratio,sigma_ratio=np.fromfile(f,np.float32,count=9)#read the parameters
+    print("time from potential file=",time)
+    n_r_max,n_r_ic_max,l_max,minc,lm_max=np.fromfile(f,np.int32,count=5)
+    m_min,m_max=np.fromfile(f,"{}2i4".format('<'),count=1)[0]
+    omega_ic,omega_max=np.fromfile(f,np.float32,count=2)#rotation
+    radius=np.fromfile(f,"{}{}f4".format('<',n_r_max),count=1)[0]#radius
+    radius=radius[::-1]
+    rho=np.fromfile(f,"{}{}f4".format('<',n_r_max),count=1)[0]#background density
+    pol=np.fromfile(f,"{}({},{})c8".format('<',n_r_max,lm_max),count=1)[0]#poloidal potential
+    pol=pol.T
+    tor=np.fromfile(f,"{}({},{})c8".format('<',n_r_max,lm_max),count=1)[0]#toroidal potential
+    tor=tor.T
+    params=[time,Ra,Pr,Raxi,Sc,Prmag,Ek,radratio,sigma_ratio]
+    rad_sph_params=[n_r_max,n_r_ic_max,l_max,minc,lm_max,m_max,m_min]
+    omega=[omega_ic,omega_max]
+    rad=[radius]
+    rho_list=[rho]
+    potentials=[pol,tor]
+    return version,params,rad_sph_params,omega,rad,rho_list,potentials
+
 def chebgrid(nr,a,b):#will look back at this if it really produces chebyshev grids
     rst=(a+b)/(b-a)
     rr=0.5*(rst+np.cos(np.pi*(1.-np.arange(nr+1.)/nr)))*(b-a)# /nr here
@@ -166,7 +190,7 @@ class Legendre:
     idx=0
     for m in m_values:
       offsets[m]=idx
-      idx+=(l_max-m+1)
+      idx+=(self.l_max-m+1)
     total=idx
     def get_index(m,l):
       return offsets[m]+(l-m)
@@ -250,7 +274,7 @@ class Legendre:
               vr=vr.T
               vt,vp,vr=np.tile(vt,(1,2)),np.tile(vp,(1,2)),np.tile(vr,(1,2))
               nlon,nlat=vt.shape[1],vt.shape[0]
-              phi_plot,theta_plot=np.linspace(0,leg.minc*np.pi,nlon),np.linspace(0,np.pi,nlat)
+              phi_plot,theta_plot=np.linspace(0,self.minc*np.pi,nlon),np.linspace(0,np.pi,nlat)
               v2=vp**2/16+vt**2/16+vr**2
               val_out=area_avg(v2,phi_plot,theta_plot)
               Eltot.append(val_out)
@@ -277,7 +301,7 @@ class Legendre:
               vr=vr.T
               vt,vp,vr=np.tile(vt,(1,2)),np.tile(vp,(1,2)),np.tile(vr,(1,2))
               nlon,nlat=vt.shape[1],vt.shape[0]
-              phi_plot,theta_plot=np.linspace(0,leg.minc*np.pi,nlon),np.linspace(0,np.pi,nlat)
+              phi_plot,theta_plot=np.linspace(0,self.minc*np.pi,nlon),np.linspace(0,np.pi,nlat)
               v2=vp**2/16+vt**2/16+vr**2
               val_out=area_avg(v2,phi_plot,theta_plot)
               Emtot.append(val_out)
@@ -331,7 +355,7 @@ class Legendre:
     plma=np.zeros(ndim_req,dtype=np.float64)
     dtheta_plma=np.zeros(ndim_req,dtype=np.float64)
 
-    dnorm=1.0/np.sqrt(16.0*np.atan(1.0))#need to know why this is multiplied and how it is linked to derivation
+    dnorm=1.0/np.sqrt(16.0*np.arctan(1.0))#need to know why this is multiplied and how it is linked to derivation
     pos=-1
 
     for m in m_values:
@@ -487,5 +511,5 @@ class Legendre:
                   vr[n_m,nThetaN]=np.conj(vr[nph-n_m,nThetaN])
 
       return vr
-print("testing on cluster")
+#print("testing on cluster")
 

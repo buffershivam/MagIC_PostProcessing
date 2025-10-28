@@ -1,0 +1,18 @@
+#!/bin/bash
+
+
+#PBS -N pythonRa10E6                   
+#PBS -l nodes=compute3:ppn=1                     
+#PBS -j oe                           
+#PBS -o output.txt                   
+
+# Load the Anaconda module
+module load compilers/anaconda-3
+
+# Navigate to the directory from where the job was submitted
+cd $PBS_O_WORKDIR
+
+# Execute the Python script
+python main_spectra.py
+
+
