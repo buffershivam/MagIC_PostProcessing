@@ -34,6 +34,17 @@ def read_stream(filename):
     potentials=[pol,tor]
     return version,params,rad_sph_params,omega,rad,rho_list,potentials
 
+def integrate_spectra_trapz(radius,S):
+    r=np.asarray(radius)
+    S=np.atleast_2d(S)
+    nr=radius.shape[0]
+    W=4.0*np.pi*r**2
+    S_w=S*W[None,:]
+    E_tot=np.trapz(S_w,x=r,axis=1)
+    V=np.trapz(W,x=r)
+    E_avg=E_tot/V
+    return E_avg
+
 def chebgrid(nr,a,b):#will look back at this if it really produces chebyshev grids
     rst=(a+b)/(b-a)
     rr=0.5*(rst+np.cos(np.pi*(1.-np.arange(nr+1.)/nr)))*(b-a)# /nr here
@@ -242,8 +253,80 @@ class Legendre:
           mask&=(self.lm2m==mcut)
       return mask
 
+  def _spectraavgm(self,radius,poloidal,toroidal):
+      a,b=self.m_max//2,radius.shape[0]
+      dpoldr=np.zeros_like(poloidal)
+      dpoldr=rderavg(poloidal,radius,False)
+      inputLM=np.zeros_like(poloidal)
+      for i in range(radius.shape[0]):
+          inputLM[:,i]=poloidal[:,i]*self.lm2l*(self.lm2l+1)/radius[i]**2
+      l_list=[]
+      Emtot,Emphi,Emthe,Emrad=np.zeros((a,b)),np.zeros((a,b)),np.zeros((a,b)),np.zeros((a,b))
+      for rad_iter in range(radius.shape[0]):
+          for m in range(0,self.m_max,self.minc):
+              mask=self._specfilter(None,m)
+              dpoldr_masked,toroidal_masked,inputLM_masked=dpoldr[:,rad_iter]*mask,toroidal[:,rad_iter]*mask,inputLM[:,rad_iter]*mask
+              vt,vp=self._specspat_vec(dpoldr_masked,toroidal_masked,self.n_theta_max,self.n_phi_max)
+              vt=np.fft.ifft(vt,axis=0)*self.n_phi_max
+              vp=np.fft.ifft(vp,axis=0)*self.n_phi_max
+              vt,vp=vt.real,vp.real
+              vt,vp=vt.T,vp.T
+              vr=self._specspat_scal(inputLM_masked,self.n_theta_max,self.n_phi_max)
+              vr=np.fft.ifft(vr,axis=0)*self.n_phi_max
+              vr=vr.real
+              vr=vr.T
+              vt,vp,vr=np.tile(vt,(1,2)),np.tile(vp,(1,2)),np.tile(vr,(1,2))
+              nlon,nlat=vt.shape[1],vt.shape[0]
+              phi_plot,theta_plot=np.linspace(0,self.minc*np.pi,nlon),np.linspace(0,np.pi,nlat)
+              v2=vp**2/16+vt**2/16+vr**2
+              val_out=area_avg(v2,phi_plot,theta_plot)
+              Emtot[int(m/2),rad_iter]=val_out
+              val_out=area_avg(vp**2/16,phi_plot,theta_plot)
+              Emphi[int(m/2),rad_iter]=val_out
+              val_out=area_avg(vt**2/16,phi_plot,theta_plot)
+              Emthe[int(m/2),rad_iter]=val_out
+              val_out=area_avg(vr**2,phi_plot,theta_plot)
+              Emrad[int(m/2),rad_iter]=val_out
+      Emtot_avg,Emphi_avg,Emthe_avg,Emrad_avg=integrate_spectra_trapz(radius,Emtot),integrate_spectra_trapz(radius,Emphi),integrate_spectra_trapz(radius,Emthe),integrate_spectra_trapz(radius,Emrad)
+      return Emtot_avg,Emphi_avg,Emthe_avg,Emrad_avg
+
+
   def _spectraavgl(self,radius,poloidal,toroidal):
-      return 0
+      a,b=self.l_max,radius.shape[0]
+      dpoldr=np.zeros_like(poloidal)
+      dpoldr=rderavg(poloidal,radius,False)
+      inputLM=np.zeros_like(poloidal)
+      for i in range(radius.shape[0]):
+          inputLM[:,i]=poloidal[:,i]*self.lm2l*(self.lm2l+1)/radius[i]**2
+      l_list=[]
+      Eltot,Elphi,Elthe,Elrad=np.zeros((a,b)),np.zeros((a,b)),np.zeros((a,b)),np.zeros((a,b))
+      for rad_iter in range(radius.shape[0]):
+        for l in range(0,self.l_max):
+          mask=self._specfilter(l,None)
+          dpoldr_masked,toroidal_masked,inputLM_masked=dpoldr[:,rad_iter]*mask,toroidal[:,rad_iter]*mask,inputLM[:,rad_iter]*mask
+          vt,vp=self._specspat_vec(dpoldr_masked,toroidal_masked,self.n_theta_max,self.n_phi_max)
+          vt=np.fft.ifft(vt,axis=0)*self.n_phi_max
+          vp=np.fft.ifft(vp,axis=0)*self.n_phi_max
+          vt,vp=vt.real,vp.real
+          vt,vp=vt.T,vp.T
+          vr=self._specspat_scal(inputLM_masked,self.n_theta_max,self.n_phi_max)
+          vr=np.fft.ifft(vr,axis=0)*self.n_phi_max
+          vr=vr.real
+          vr=vr.T
+          vt,vp,vr=np.tile(vt,(1,2)),np.tile(vp,(1,2)),np.tile(vr,(1,2))
+          nlon,nlat=vt.shape[1],vt.shape[0]
+          phi_plot,theta_plot=np.linspace(0,self.minc*np.pi,nlon),np.linspace(0,np.pi,nlat)
+          v2=vp**2/16+vt**2/16+vr**2
+          val_out=area_avg(v2,phi_plot,theta_plot)
+          Eltot[l,rad_iter]=val_out
+          val_out=area_avg(vp**2/16,phi_plot,theta_plot)
+          Elphi[l,rad_iter]=val_out
+          val_out=area_avg(vt**2/16,phi_plot,theta_plot)
+          Elthe[l,rad_iter]=val_out
+          val_out=area_avg(vr**2,phi_plot,theta_plot)
+          Elrad[l,rad_iter]=val_out
+      Eltot_avg,Elphi_avg,Elthe_avg,Elrad_avg=integrate_spectra_trapz(radius,Eltot),integrate_spectra_trapz(radius,Elphi),integrate_spectra_trapz(radius,Elthe),integrate_spectra_trapz(radius,Elrad)
+      return Eltot_avg,Elphi_avg,Elthe_avg,Elrad_avg
 
   def _spectra(self,radius,radial_level,poloidal,toroidal,lspec,mspec):
       dpoldr=np.zeros_like(poloidal)
