@@ -1,0 +1,7 @@
+numpy
+matplotlib
+colorama
+cartopy
+imageio
+tqdm
+scipy
