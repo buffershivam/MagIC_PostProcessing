@@ -34,6 +34,12 @@ def read_stream(filename):
     potentials=[pol,tor]
     return version,params,rad_sph_params,omega,rad,rho_list,potentials
 
+def integrate_trapz(radius,S):
+    r=np.asarray(radius)
+    S=np.atleast_2d(S)
+    E=np.trapz(S,x=r,axis=1)
+    return E
+
 def integrate_spectra_trapz(radius,S):
     r=np.asarray(radius)
     S=np.atleast_2d(S)
@@ -253,6 +259,53 @@ class Legendre:
           mask&=(self.lm2m==mcut)
       return mask
 
+  def _spectra_residual(self,radius,poloidal,toroidal):
+      #l spectra for the residual modes m!=0
+      m_zonal=0
+      mask_zonal=self._specfilter(None,m_zonal)
+      poloidal_zonal,poloidal_residual,toroidal_zonal,toroidal_residual=np.zeros_like(poloidal),np.zeros_like(toroidal),np.zeros_like(poloidal),np.zeros_like(toroidal)
+      for rad_iter in range(radius.shape[0]):
+          poloidal_zonal[:,rad_iter],toroidal_zonal[:,rad_iter]=poloidal[:,rad_iter]*mask_zonal,toroidal[:,rad_iter]*mask_zonal
+      poloidal_residual,toroidal_residual=poloidal-poloidal_zonal,toroidal-toroidal_zonal#subtract zonal filtered potentials
+      Eltot,Elphi,Elthe,Elrad=self._spectraavgl(radius,poloidal_residual,toroidal_residual)
+      return Eltot,Elphi,Elthe,Elrad
+
+  def _spectra_zonal(self,radius,poloidal,toroidal):
+      #we calculate l spectra for zonal mode m=0
+      m_zonal=0
+      mask_zonal=self._specfilter(None,m_zonal)
+      poloidal_zonal,toroidal_zonal=np.zeros_like(poloidal),np.zeros_like(toroidal)
+      for rad_iter in range(radius.shape[0]):#only filter zonal modes at each radius
+          poloidal_zonal[:,rad_iter],toroidal_zonal[:,rad_iter]=poloidal[:,rad_iter]*mask_zonal,toroidal[:,rad_iter]*mask_zonal
+      Eltot,Elphi,Elthe,Elrad=self._spectraavgl(radius,poloidal_zonal,toroidal_zonal)#calculate the average spectra in l space
+      return Eltot,Elphi,Elthe,Elrad
+
+  def _spectra_poloidal_toroidal(self,radius,poloidal,toroidal):
+      dpoldr=np.zeros_like(poloidal)
+      dpoldr=rderavg(poloidal,radius,False)
+      poloidal_sq,toroidal_sq,dpoldr_sq=np.zeros_like(poloidal),np.zeros_like(toroidal),np.zeros_like(dpoldr)
+      E_p_l_r,E_t_l_r=np.zeros((self.l_max+1,radius.shape[0])),np.zeros((self.l_max+1,radius.shape[0]))
+      E_p_m_r,E_t_m_r=np.zeros((self.m_max+1,radius.shape[0])),np.zeros((self.m_max+1,radius.shape[0]))
+      E_p_tmp,E_t_tmp=0.0,0.0
+      for rad_iter in range(radius.shape[0]):
+          poloidal_sq[:,rad_iter],toroidal_sq[:,rad_iter],dpoldr_sq[:,rad_iter]=np.abs(poloidal[:,rad_iter])**2,np.abs(toroidal[:,rad_iter])**2,np.abs(dpoldr[:,rad_iter])**2
+      print(poloidal_sq.shape,toroidal_sq.shape,dpoldr_sq.shape)
+      for rad_iter in range(radius.shape[0]):
+          one_r2=1/(radius[rad_iter]**2)
+          for lm in range(self.lm_max):
+              l=self.lm2l[lm]
+              if(l==0):
+                  continue
+              m=self.lm2m[lm]
+              E_p_tmp=one_r2*(l*(l+1))*(l*(l+1))*poloidal_sq[lm,rad_iter]+(l*(l+1))*dpoldr_sq[lm,rad_iter]
+              E_t_tmp=(l*(l+1))*toroidal_sq[lm,rad_iter]
+              E_p_l_r[l,rad_iter]=E_p_l_r[l,rad_iter]+E_p_tmp
+              E_t_l_r[l,rad_iter]=E_t_l_r[l,rad_iter]+E_t_tmp
+              E_p_m_r[m,rad_iter]=E_p_m_r[m,rad_iter]+E_p_tmp
+              E_t_m_r[m,rad_iter]=E_t_m_r[m,rad_iter]+E_t_tmp
+      E_p_l,E_t_l,E_p_m,E_t_m=integrate_trapz(radius,E_p_l_r),integrate_trapz(radius,E_t_l_r),integrate_trapz(radius,E_p_m_r),integrate_trapz(radius,E_t_m_r)
+      return E_p_l,E_t_l,E_p_m,E_t_m
+
   def _spectraavgm(self,radius,poloidal,toroidal):
       a,b=self.m_max//2,radius.shape[0]
       dpoldr=np.zeros_like(poloidal)
@@ -263,6 +316,7 @@ class Legendre:
       l_list=[]
       Emtot,Emphi,Emthe,Emrad=np.zeros((a,b)),np.zeros((a,b)),np.zeros((a,b)),np.zeros((a,b))
       for rad_iter in range(radius.shape[0]):
+          rad_2=radius[rad_iter]**2
           for m in range(0,self.m_max,self.minc):
               mask=self._specfilter(None,m)
               dpoldr_masked,toroidal_masked,inputLM_masked=dpoldr[:,rad_iter]*mask,toroidal[:,rad_iter]*mask,inputLM[:,rad_iter]*mask
@@ -278,12 +332,12 @@ class Legendre:
               vt,vp,vr=np.tile(vt,(1,2)),np.tile(vp,(1,2)),np.tile(vr,(1,2))
               nlon,nlat=vt.shape[1],vt.shape[0]
               phi_plot,theta_plot=np.linspace(0,self.minc*np.pi,nlon),np.linspace(0,np.pi,nlat)
-              v2=vp**2/16+vt**2/16+vr**2
+              v2=vp**2/rad_2+vt**2/rad_2+vr**2
               val_out=area_avg(v2,phi_plot,theta_plot)
               Emtot[int(m/2),rad_iter]=val_out
-              val_out=area_avg(vp**2/16,phi_plot,theta_plot)
+              val_out=area_avg(vp**2/rad_2,phi_plot,theta_plot)
               Emphi[int(m/2),rad_iter]=val_out
-              val_out=area_avg(vt**2/16,phi_plot,theta_plot)
+              val_out=area_avg(vt**2/rad_2,phi_plot,theta_plot)
               Emthe[int(m/2),rad_iter]=val_out
               val_out=area_avg(vr**2,phi_plot,theta_plot)
               Emrad[int(m/2),rad_iter]=val_out
@@ -301,6 +355,7 @@ class Legendre:
       l_list=[]
       Eltot,Elphi,Elthe,Elrad=np.zeros((a,b)),np.zeros((a,b)),np.zeros((a,b)),np.zeros((a,b))
       for rad_iter in range(radius.shape[0]):
+        rad_2=radius[rad_iter]**2
         for l in range(0,self.l_max):
           mask=self._specfilter(l,None)
           dpoldr_masked,toroidal_masked,inputLM_masked=dpoldr[:,rad_iter]*mask,toroidal[:,rad_iter]*mask,inputLM[:,rad_iter]*mask
@@ -316,12 +371,12 @@ class Legendre:
           vt,vp,vr=np.tile(vt,(1,2)),np.tile(vp,(1,2)),np.tile(vr,(1,2))
           nlon,nlat=vt.shape[1],vt.shape[0]
           phi_plot,theta_plot=np.linspace(0,self.minc*np.pi,nlon),np.linspace(0,np.pi,nlat)
-          v2=vp**2/16+vt**2/16+vr**2
+          v2=vp**2/rad_2+vt**2/rad_2+vr**2
           val_out=area_avg(v2,phi_plot,theta_plot)
           Eltot[l,rad_iter]=val_out
-          val_out=area_avg(vp**2/16,phi_plot,theta_plot)
+          val_out=area_avg(vp**2/rad_2,phi_plot,theta_plot)
           Elphi[l,rad_iter]=val_out
-          val_out=area_avg(vt**2/16,phi_plot,theta_plot)
+          val_out=area_avg(vt**2/rad_2,phi_plot,theta_plot)
           Elthe[l,rad_iter]=val_out
           val_out=area_avg(vr**2,phi_plot,theta_plot)
           Elrad[l,rad_iter]=val_out
