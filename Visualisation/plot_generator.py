@@ -253,7 +253,7 @@ class GeneratePlots:
         # ax.gridlines(draw_labels=True, linewidth=0.5, linestyle=':', color='black')
 
         # To plot the tangent cylinder's intersection with the outer surface
-        tangent_lat = 90 - math.degrees(math.acos(0.75))
+        tangent_lat = 90 - math.degrees(math.acos(self.reader.radratio)) # Changed the expression to be valid for a general Rad_Ratio
         tang_lons = np.linspace(-180, 180, 500)
         tang_lats = np.full_like(tang_lons, tangent_lat)
         ax.plot(tang_lons, tang_lats, color='black', linewidth=1.5, linestyle=':', transform=ccrs.Geodetic(), zorder=2)
