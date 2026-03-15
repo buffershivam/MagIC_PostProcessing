@@ -1,6 +1,7 @@
 from read_File import ReadFile
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
 import math
 
 #from scipy.io import npfile
@@ -47,7 +48,9 @@ class GeneratePlots:
         if v.shape[0] != len(phi):
             phi = np.linspace(0., 2*np.pi, v.shape[0])
 
-        v_norm = v / max(abs(v.max()), abs(v.min())) #- (0.5 if prop_name == "entropy" else 0.0) #(v - v.min()) / (v.max() - v.min())
+        vmax = np.max(np.abs(v))
+        v_norm = v / vmax #- (0.5 if prop_name == "entropy" else 0.0) #(v - v.min()) / (v.max() - v.min())
+        norm = mcolors.TwoSlopeNorm(vmin = -1, vcenter=0, vmax = 1)
 
         rr, pphi = np.meshgrid(radius, phi, indexing='xy')
         xx = rr * np.cos(pphi)
@@ -56,7 +59,7 @@ class GeneratePlots:
             # Plot filled contour
         plt.figure(figsize=(10.08, 10.08)) # to ensure that the plots are compatible with the movie
         contour = plt.contourf(xx, yy, v_norm, levels=100, cmap='magma' if prop_name=="entropy" else 'seismic', antialiased=True,
-                                vmin=0 if prop_name=="entropy" else -1, vmax=1) # RdBu_r used Red for +ve and Blue for -ve
+                                norm = norm)# vmin=0 if prop_name=="entropy" else -1, vmax=1) # RdBu_r used Red for +ve and Blue for -ve
         plt.colorbar(contour, label=f'Normalized {prop_name}')
         plt.xlabel('x')
         plt.ylabel('y')
@@ -82,8 +85,9 @@ class GeneratePlots:
             theta = np.linspace(0., np.pi, v.shape[0])
 
 
-        v_norm = v / max(abs(v.max()), abs(v.min())) - (0.5 if prop_name == "entropy" else 0.0) #(v - v.min()) / (v.max() - v.min())
-
+        vmax = np.max(np.abs(v))
+        v_norm = v / vmax #- (0.5 if prop_name == "entropy" else 0.0) #(v - v.min()) / (v.max() - v.min())
+        norm = mcolors.TwoSlopeNorm(vmin = -1, vcenter = 0, vmax = 1)
 
         rr, ttheta = np.meshgrid(radius, theta, indexing='xy')
         zz = rr * np.cos(ttheta)
@@ -91,7 +95,7 @@ class GeneratePlots:
 
         # Plot filled contour
         plt.figure(figsize=(6.08, 6.08)) # to ensure that the image size is compatible with the movie
-        contour = plt.contourf(xx, zz, v_norm, levels=100, cmap='seismic', antialiased=True, vmin=-1, vmax=1) # RdBu_r uses Red for +ve and Blue for -ve
+        contour = plt.contourf(xx, zz, v_norm, levels=100, cmap='seismic', antialiased=True, norm = norm) # RdBu_r uses Red for +ve and Blue for -ve
         plt.colorbar(contour, label=f'Normalized {prop_name}')
         plt.xlabel('x')
         plt.ylabel('z')
