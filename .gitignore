@@ -4,6 +4,7 @@ Visualisation/*.test
 
 # Plots,.png files
 Visualisation/frames*/
+Visualisation/*.png
 
 
 # Files created on compilation
